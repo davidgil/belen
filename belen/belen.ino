@@ -1,160 +1,170 @@
-//www.elegoo.com
-//2016.12.12
-
 /*
- Stepper Motor Control - one revolution
-
- This program drives a unipolar or bipolar stepper motor.
- The motor is attached to digital pins 8 - 11 of the Arduino.
-
- The motor should revolve one revolution in one direction, then
- one revolution in the other direction.
-
- */
-
-#include <Stepper.h>
+Controlador Arduino de mi Belen, este año compuesto por:
+  - Un burro que da vueltas alrededor de una piedra de moler trigo. Controlado por un motor stepper
+  - Un panadero que saca el pan del horno. Controlado por un motor servo
+  - Un perro que persigue a un gato. Controlado por un motor stepper.
+*/
 #include <Servo.h>
 #include <AccelStepper.h>
 
-class Panadero
-{
-  Servo servo;              // the servo
-  int pos;              // current servo position 
-  int increment;        // increment to move for each interval
-  int  updateInterval;      // interval between updates
-  unsigned long lastUpdate; // last update of position
-  unsigned long lastPause; // last pause of position
-  bool paused = false;
+class Pausador {
+  bool estaPausado = false;
+  unsigned long lastPause;
+  int tiempoPausa;
+  int cicloPausa;
 
-  int posicionInicial = 160;
-  int posicionFinal = 20;
+  public: Pausador(int parameterCicloPausa, int parameterTiempoPausa) {
+    lastPause = millis();   
+    tiempoPausa = parameterTiempoPausa;
+    cicloPausa = parameterCicloPausa;
+  }
 
-  int tiempoPausa = 2000;
- 
-  public: Panadero(int interval)
-  {
-    pos = 20;
-    updateInterval = interval;
-    increment = 1;
-  }
-  
-  void Attach(int pin)
-  {
-    servo.attach(pin);
-  }
-  
-  void Detach()
-  {
-    servo.detach();
-  }
-  
-  void Update()
-  {
-    if((millis() - lastUpdate) > updateInterval)  // time to update
-    {
-      lastUpdate = millis();
-      
-      if (!paused && ( (pos == posicionInicial)  || (pos == posicionFinal) ) )
-      {
-        lastPause = millis();
-        paused = true;
-      }
-
-      if(paused && (millis() - lastPause) < tiempoPausa) {
-        return;
-      } else if (paused) {
-        paused = false;
-      }
-      
-      pos += increment;
-      servo.write(pos);
-      if ((pos > posicionInicial) || (pos < posicionFinal)) // end of sweep
-      {
-        // reverse direction
-        increment = -increment;
-      }
+  public: bool isPausado() { 
+    long currentTime = millis();   
+    if (estaPausado) {
+      if (haPasadoElTiempoDePausa()) {
+        lastPause = currentTime;
+        estaPausado = false;
+        return false;
+      } 
+      return true;
+    } else {
+      if (hayQuePausar()) {
+        estaPausado = true;
+        lastPause = currentTime;
+        return true;
+      } 
+      return false;
     }
+  }
+
+  bool haPasadoElTiempoDePausa() {
+    return (millis() - lastPause) < tiempoPausa;
+  }
+
+  bool hayQuePausar() {
+    return (millis() - lastPause) > cicloPausa;
   }
 };
 
+/**
+ * Controlador del Panadero. 
+ * Un panadero que saca el pan del horno. 
+ * Controlado por un motor servo.
+ */
+class Panadero {
+  const int POSICION_INICIAL = 20;
+  const int POSICION_FINAL = 160;
+  const int TIEMPO_PAUSA = 2000;
+  
+  Servo servo;              // the servo
+  int pos;                  // current servo position 
+  int increment;            // increment to move for each interval
+  int  updateInterval;      // interval between updates
+  unsigned long lastUpdate; // last update of position
+  unsigned long lastPause;  // last pause of position
+  bool paused = false;
+ 
+  public: 
+    Panadero(int interval) {
+      pos = POSICION_INICIAL;
+      updateInterval = interval;
+      increment = 1;
+    }
+    
+    void Attach(int pin) {
+      servo.attach(pin);
+    }
+    
+    void Detach() {
+      servo.detach();
+    }
+    
+    void update() {
+      if((millis() - lastUpdate) > updateInterval) {
+        lastUpdate = millis();
+        
+        if (!paused && ( (pos == POSICION_INICIAL)  || (pos == POSICION_FINAL) ) ) {
+          lastPause = millis();
+          paused = true;
+        }
+  
+        if(paused && (millis() - lastPause) < TIEMPO_PAUSA) {
+          return;
+        } else if (paused) {
+          paused = false;
+        }
+        
+        pos += increment;
+        servo.write(pos);
+        if ((pos > POSICION_INICIAL) || (pos < POSICION_FINAL)) {
+          // reverse direction
+          increment = -increment;
+        }
+      }
+    }
+};
 
+/**
+ * Clase de control del burro.
+ * Un burro que da vueltas alrededor de una piedra de moler trigo. 
+ * Controlado por un motor stepper
+ */
+class Burro {
+  AccelStepper stepperBurro;
+  Pausador pausador;
 
+  public: Burro(): stepperBurro(AccelStepper::HALF4WIRE, 8, 10, 9, 11), pausador(8000, 2000) {
+    stepperBurro.setMaxSpeed(500);
+    stepperBurro.setSpeed(100);
+  }
 
-const int stepsPerRevolution = 400;  // change this to fit the number of steps per revolution
+  void update() {
+    if (pausador.isPausado()) {
+      stepperBurro.stop();
+    } else {
+      stepperBurro.runSpeed();  //TODO: testar con run
+    }
+  }
+}; 
 
-// initialize the stepper library on pins 8 through 11:
-//Stepper stepperBurro(stepsPerRevolution, 8, 10, 9, 11);
-//Stepper stepperPerro(stepsPerRevolution, 4, 6, 5, 7);
+/**
+ * Un perro que persigue a un gato. 
+ * Controlado por un motor stepper.
+ */
+class PerroGato {
+  public: 
+    PerroGato(): stepperPerro(AccelStepper::HALF4WIRE, 4, 6, 5, 7), pausador(4000, 1000) {
+      stepperPerro.setMaxSpeed(1000);
+      stepperPerro.setSpeed(500);
+    }
 
-#define FULLSTEP 4
-#define HALFSTEP 8
-AccelStepper stepperPerro(HALFSTEP, 4, 6, 5, 7);
+    void update() {
+      if (pausador.isPausado()) {
+        stepperPerro.stop();
+      } else {
+        stepperPerro.runSpeed();  //TODO: testar con run
+      }
+    }
 
-AccelStepper stepperBurro(HALFSTEP, 8, 10, 9, 11);
+  private: 
+    AccelStepper stepperPerro;
+    Pausador pausador;
+};
 
-
-// motor del panadero
+/**
+ * PROGRAMA PRINCIPAL
+ */
 Panadero panadero(25);
+Burro burro;
+PerroGato perroGato;
 
 void setup() {
   panadero.Attach(13);
-  stepperBurro.setSpeed(40);
-  //stepperPerro.setSpeed(50);
-
-  stepperBurro.setMaxSpeed(500);
-   stepperBurro.setSpeed(100);
-
-  stepperPerro.setMaxSpeed(1000);
-  stepperPerro.setSpeed(500); 
 }
-
 
 void loop() {
-  panadero.Update();
-  //stepperBurro.step(1);
-  //stepperPerro.step(1);
-    stepperBurro.runSpeed();
-
-  stepperPerro.runSpeed();
-
-  // Movimiento del burro
-  /*
-  myStepper.setSpeed(5);
-  myStepper.step(500);
-
-  myStepper.setSpeed(10);
-  myStepper.step(500);
-
-  myStepper.setSpeed(15);
-  myStepper.step(500);
-
-  myStepper.setSpeed(20);
-  myStepper.step(500);
-
-  myStepper.setSpeed(25);
-  myStepper.step(500);
-  
-  myStepper.setSpeed(30);
-  myStepper.step(500);
-
-  myStepper.setSpeed(25);
-  myStepper.step(500);
-
-  myStepper.setSpeed(20);
-  myStepper.step(500);
-
-  myStepper.setSpeed(15);
-  myStepper.step(500);
-
-  myStepper.setSpeed(10);
-  myStepper.step(500);
-
-  myStepper.setSpeed(5);
-  myStepper.step(500);
-  */
-
- //delay(5000);
- 
+  panadero.update();
+  burro.update();
+  perroGato.update();
 }
-
-
