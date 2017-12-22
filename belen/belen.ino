@@ -39,7 +39,7 @@ class Pausador {
   }
 
   bool haPasadoElTiempoDePausa() {
-    return (millis() - lastPause) < tiempoPausa;
+    return (millis() - lastPause) > tiempoPausa;
   }
 
   bool hayQuePausar() {
@@ -53,8 +53,8 @@ class Pausador {
  * Controlado por un motor servo.
  */
 class Panadero {
-  const int POSICION_INICIAL = 20;
-  const int POSICION_FINAL = 160;
+  const int POSICION_INICIAL = 160;
+  const int POSICION_FINAL = 20;
   const int TIEMPO_PAUSA = 2000;
   
   Servo servo;              // the servo
@@ -67,7 +67,7 @@ class Panadero {
  
   public: 
     Panadero(int interval) {
-      pos = POSICION_INICIAL;
+      pos = 20;
       updateInterval = interval;
       increment = 1;
     }
@@ -114,17 +114,18 @@ class Burro {
   AccelStepper stepperBurro;
   Pausador pausador;
 
-  public: Burro(): stepperBurro(AccelStepper::HALF4WIRE, 8, 10, 9, 11), pausador(8000, 2000) {
+  public: Burro(): stepperBurro(AccelStepper::HALF4WIRE, 8, 10, 9, 11), pausador(15000, 4000) {
     stepperBurro.setMaxSpeed(500);
-    stepperBurro.setSpeed(100);
+    stepperBurro.setSpeed(200);
   }
 
   void update() {
-    if (pausador.isPausado()) {
-      stepperBurro.stop();
-    } else {
-      stepperBurro.runSpeed();  //TODO: testar con run
-    }
+   if (pausador.isPausado()) {
+     stepperBurro.stop();
+   } else {
+     stepperBurro.setSpeed(200);
+     stepperBurro.runSpeed();  //TODO: testar con run
+   }
   }
 }; 
 
@@ -134,7 +135,7 @@ class Burro {
  */
 class PerroGato {
   public: 
-    PerroGato(): stepperPerro(AccelStepper::HALF4WIRE, 4, 6, 5, 7), pausador(4000, 1000) {
+    PerroGato(): stepperPerro(AccelStepper::HALF4WIRE, 4, 6, 5, 7), pausador(8000, 3000) {
       stepperPerro.setMaxSpeed(1000);
       stepperPerro.setSpeed(500);
     }
@@ -143,6 +144,8 @@ class PerroGato {
       if (pausador.isPausado()) {
         stepperPerro.stop();
       } else {
+        stepperPerro.setSpeed(500);
+
         stepperPerro.runSpeed();  //TODO: testar con run
       }
     }
